@@ -4,13 +4,32 @@ const ObjectID = mongoose.Schema.Types.ObjectId;
 
 const cartSchema = mongoose.Schema(
     {
-        owner: { type: ObjectID, ref: "Users", required: true },
-        item: { type: ObjectID, ref: "Items", required: true },
-        quantity: { type: Number, required: true },
-        bill: { type: Number, required: true, default: 0 },
-    },
-    {
-        timestamps: true,
+        owner : {
+            type: ObjectID,
+             required: true,
+             ref: 'Users'
+           },
+          items: [{
+            itemId: {
+             type: ObjectID,
+             ref: 'Items',
+             required: true
+          },
+          name: String,
+          quantity: {
+             type: Number,
+             required: true,
+             min: 1,
+             default: 1},
+             price: Number
+           }],
+          bill: {
+              type: Number,
+              required: true,
+             default: 0
+            }
+          }, {
+          timestamps: true
     }
 );
 
