@@ -9,255 +9,95 @@ import Order_model from "../model/orders.js";
 
 const router = express.Router();
 
-// auth createItems
 
-router.post("/createItems", async (req, res) => {
-  const { name, description, category, price } = req.body;
-  if (!name || !description || !category || !price) {
-    return res.status(400).json({ message: "all fields are required" });
-  }
+// get cart
+
+router.get("/cart",   async (req, res) => {
+  const owner = req.user._id;
   try {
-    await Item_model.create({ name, description, category, price }).then(
-      (item) => {
-        res.status(201).json({ message: "item successfully created", item });
-      }
-    );
-  } catch (err) {
-    res.status(400).json({
-      message: "item not successfully created",
-      error: err.message,
-    });
+      const cart = await Cart.findOne({ owner });
+  if (cart && cart.items.length > 0) {
+       res.status(200).send(cart);
+  } else {
+        res.send(null);
   }
-});
-
-
-// add items together
-
-router.post("/addItems", async (req, res) => {
-  const item = req.body;
-  if (!item) {
-    return res.status(400).json({ message: "all fields are required" });
+  } catch (error) {
+      res.status(500).send();
   }
+  });
+
+// create a new item
+
+router.post('/items', async(req, res) => {
   try {
-    await Item_model.create(item).then((item) => {
-      res.status(201).json({ message: "item successfully created", item });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "item not successfully created",
-      error: err.message,
-    });
+  const newItem = new Item({
+      ...req.body,
+      owner: req.user._id
+  })
+     await newItem.save()
+     res.status(201).send(newItem)
+  } catch (error) {
+  res.status(400).send({message: "error"})
   }
-});
+  })
 
-
-
-
-
-
-// auth getItemById
-
-router.get("/getItemById/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    await Item_model.findById(id).then((item) => {
-      res.status(201).json({ message: "item successfully listed", item });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "item not successfully listed",
-      error: err.message,
-    });
-  }
-});
-
-// auth getAllItems
-
-router.get("/getItems", async (req, res) => {
-  try {
-    await Item_model.find().then((item) => {
-      res.status(201).json({ message: "All items successfully listed", item });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "All items not successfully listed",
-      error: err.message,
-    });
-  }
-});
-
-// auth updateById
-
-router.put("/updateItemById/:id", async (req, res) => {
-  const { id } = req.params;
-  const { name, description, category, price } = req.body;
-  try {
-    await Item_model.findByIdAndUpdate(id, {
-      name,
-      description,
-      category,
-      price,
-    }).then((item) => {
-      res.status(201).json({ message: "item successfully updated", item });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "item not successfully updated",
-      error: err.message,
-    });
-  }
-});
-
-// auth deleteById
-
-router.delete("/deleteItemById/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    await Item_model.findByIdAndDelete(id).then((item) => {
-      res.status(201).json({ message: "item successfully deleted", item });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "item not successfully deleted",
-      error: err.message,
-    });
-  }
-});
-
-//  get cartById
-
-router.get("/getCartById/:id", async (req, res) => {
-  const { id } = req.params;
-  if (!id) {
-    return res.status(400).json({ message: "id is required" });
-  }
-  try {
-    await Cart_model.findById(id).then((cart) => {
-      res.status(201).json({ message: "cart successfully listed", cart });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "cart not successfully listed",
-      error: err.message,
-    });
-  }
-});
-
-// create cart
-
-router.post("/createCart", async (req, res) => {
-  const owner = req.user;
-  const { item, quantity } = req.body;
-  try {
-    const cart = await Cart_model.findOne({ owner });
-    const item = await Item_model.findOne({ _id: item });
-    if (!item) {
-      return res.status(400).json({ message: "item does not exist" });
+  // fetch an item
+  router.get('/items/:id', async(req, res) => {
+    try{
+       const item = await Item_model.findOne({_id: req.params.id})
+    if(!item) {
+       res.status(404).send({error: "Item not found"})
     }
-    const price = item.price;
-    const name = item.name;
-    console.log(cart);
-    if (cart) {
-      //cart exists for user
-      let itemIndex = cart.items.findIndex((item) => item.item == item);
-      if (itemIndex > -1) {
-        //product exists in the cart, update the quantity
-        let productItem = cart.items[itemIndex];
-        productItem.quantity = quantity;
-        cart.bill = cart.items.reduce((a, c) => a + c.quantity * c.price, 0);
-        cart.items[itemIndex] = productItem;
-        await cart.save();
-        return res.status(201).json({ message: "quantity successfully updated" });
-      } else {
-        //product does not exists in cart, add new item
-        cart.items.push({ item, quantity, price, name });
-        cart.bill = cart.items.reduce((a, c) => a + c.quantity * c.price, 0);
-        await cart.save();
-        return res.status(201).json({ message: "cart successfully added" });
-      }
-    } else {
-      //no cart for user, create new cart
-      const newCart = await Cart_model.create({
-        owner,
-        items: [{ item, quantity, price, name }],
-        bill: quantity * price,
-      });
-      return res.status(201).json({ message: "cart successfully created" });
+       res.status(200).send(item)
+    } catch (error) {
+       res.status(400).send(error)
     }
-  } catch (err) {
-    res.status(400).json({
-      message: "cart not successfully created",
-    });
-  }
-});
+    })
 
-// update cart
-router.put("/updateCart/:id", async (req, res) => {
-  const { id } = req.params;
-  const { item, quantity } = req.body;
-  try {
-    await Cart_model.findByIdAndUpdate(id, { item, quantity }).then((cart) => {
-      res.status(201).json({ message: "cart successfully updated", cart });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "cart not successfully updated",
-      error: err.message,
-    });
-  }
-});
+    // fetch all items
 
-// delete cart
-router.delete("/deleteCart/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    await Cart_model.findByIdAndDelete(id).then((cart) => {
-      res.status(201).json({ message: "cart successfully deleted", cart });
-    });
-  } catch (err) {
-    res.status(400).json({
-      message: "cart not successfully deleted",
-      error: err.message,
-    });
-  }
-});
+    router.get('/items', async(req, res) => {
+      try{
+          const items = await Item_model.find({})
+          res.status(200).send(items)
+      } catch (error) {
+        res.status(400).send(error)  
+      }
+    })
+    
+    // update an item
+    router.patch('/items/:id',  async(req, res) => {
+      const updates = Object.keys(req.body)
+      const allowedUpdates = ['name', 'description', 'category', 'price']
+      const isValidOperation = updates.every((update) =>              allowedUpdates.includes(update))
+         if(!isValidOperation) {
+           return res.status(400).send({ error: 'invalid updates'})
+      }
+      try {
+        const item = await Item_model.findOne({ _id: req.params.id})
+        if(!item){
+            return res.status(404).send()
+        }
+        updates.forEach((update) => item[update] = req.body[update])
+        await item.save()
+        res.send(item)
+      } catch (error) {
+      res.status(400).send(error)
+      }
+      })
 
-
-  // order routes   
-
-        router.get("/getOrderById/:id", async (req, res) => {
-
-          const { id } = req.params;
-          if (!id) {
-            return res.status(400).json({ message: "id is required" });
-          }
-          try {
-            await Order_model.findById(id).then((order) => {
-              res.status(201).json({ message: "order successfully listed", order });
-            });
-          } catch (err) {
-            res.status(400).json({
-              message: "order not successfully listed",
-              error: err.message,
-            });
-          }
-        });
-
-        // chekcout
-
-        // router.post("/checkout", async (req, res) => {
-        //     try{
-        //       const owner = req.user._id;
-        //       let payload = req.body;
-
-        //       // find cart and user
-
-        //       let cart = await Cart_model.findOne(  { owner }  );
-        //       let user = await req.user;
-
-        //     if (cart){
-        //       payload = { ...payload, cart: cart._id, owner: user._id };
-        //       const order = await Order_model.create(payload);
+      // delete an item
+      router.delete('/items/:id', async(req, res) => {
+        try {
+        const deletedItem = await Item.findOneAndDelete( {_id: req.params.id} )
+           if(!deletedItem) {
+            res.status(404).send({error: "Item not found"})
+        }
+           res.send(deletedItem)
+        } catch (error) {
+           res.status(400).send(error)
+        }
+        })
 
 // auth register
 
@@ -277,9 +117,6 @@ router.post("/auth/register", async (req, res) => {
   if (email.indexOf(".") === -1) {
     return res.status(400).json({ message: "invalid email" });
   }
-  // if (email === email) {
-  //   return res.status(400).json({ message: "email already exist" });
-  // }
   try {
     bcrypt.hash(password, 10).then(async (hash) => {
       await Model.create({ firstName, lastName, email, password: hash }).then(
